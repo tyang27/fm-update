@@ -20,7 +20,7 @@ def bwm(t):
     bwm = [x for (x,_) in sort]
     sa = [y for (_,y) in sort]
   
-    return sorted(rotations(t)), sa
+    return sorted(rotations(t)), np.array(sa)
 
 def bwtViaBwm(t):
     ''' Given T, returns BWT(T) and sampled SA(T) by way of the BWM '''
@@ -139,7 +139,7 @@ def moveRow(fm, b, alphabet, i, j):
         last = last[:j] + [last[i]] + last[j:i] + last[i+1:]
 
         # Update SA
-        sa = sa[:j] + [sa[i]] + sa[j:i] + sa[i+1:]
+        sa = np.concatenate((sa[:j], [sa[i]], sa[j:i], sa[i+1:]))
 
         # Loop through checkpoints between j and i
         indexAdded = alphabet.index(last[j])
@@ -150,7 +150,7 @@ def moveRow(fm, b, alphabet, i, j):
         last = last[:i] + last[i+1:j+1] + [last[i]] + last[j+1:]
         
         # Update SA
-        sa = sa[:i] + sa[i+1:j+1] + [sa[i]] + sa[j+1:]
+        sa = np.concatenate((sa[:i], sa[i+1:j+1], [sa[i]], sa[j+1:]))
 
         # Loop through checkpoints between j and i
         indexRemoved = alphabet.index(last[j])
@@ -167,7 +167,7 @@ def insert(fm, b, alphabet, index, c, timing=False):
     if timing:
       starttime = time.time()
     # Update old row
-    row = sa.index(index)
+    row = np.where(sa == index)[0][0]
     tempC = last[row]
     last[row] = c
     if timing:
@@ -212,21 +212,8 @@ def insert(fm, b, alphabet, index, c, timing=False):
     # Update SA
     if timing:
       starttime = time.time()
-    sa_copy = sa.copy()
-
-    start = time.time()
-    for i in range(len(sa)):
-        if sa[i] >= index:
-            sa[i] += 1
-    print(time.time() - start)
-    start = time.time()
-    sa_copy = np.array(sa_copy)
-    sa_copy[sa_copy >= index] += 1
-    print(time.time() - start)
-    print(np.array_equal(sa, sa_copy))
-
-    sa = sa[:newRow] + [index] + sa[newRow:]
-    sa_copy = np.concatenate((sa_copy[:newRow], [index], sa_copy[newRow:]))
+    sa[sa >= index] += 1
+    sa = np.concatenate((sa[:newRow], [index], sa[newRow:]))
     if timing:
       time_elapsed = time.time() - starttime
       print(f'{time_elapsed}, ', end='')
@@ -237,7 +224,12 @@ def insert(fm, b, alphabet, index, c, timing=False):
     indexRemoved = alphabet.index(tempC)
     for x in range(newRow + b - (newRow%b+1), len(last)-1, b):
         checkpoints[int((x+1) / b) - 1][alphabet.index(last[x+1])] -= 1 # VECTORIZE THIS?
-    checkpoints[startInd:, indexRemoved] = checkpoints[startInd:, indexRemoved] + np.ones((1, len(checkpoints) - startInd))
+    #print(checkpoints[startInd:, indexRemoved])
+    checkpoints_copy = checkpoints.copy()
+    checkpoints_copy[startInd:, indexRemoved] = checkpoints_copy[startInd:, indexRemoved] + np.ones((1, len(checkpoints) - startInd))
+    checkpoints[startInd:, indexRemoved] += 1
+    #print(checkpoints[startInd:, indexRemoved])
+    print(np.array_equal(checkpoints, checkpoints_copy))
 
     # Add new checkpoint row
     if len(last) % b == 0:
@@ -256,7 +248,7 @@ def insert(fm, b, alphabet, index, c, timing=False):
       starttime = time.time()
     #j = getRowBySA(fm, index-1, a, alphabet)
     if index > 0:
-        j = sa.index(index-1)
+        j = np.where(sa == index-1)[0][0]
 
         j2 = LF(fm, b, alphabet, newRow)
         while not j == j2:
@@ -271,112 +263,7 @@ def insert(fm, b, alphabet, index, c, timing=False):
 
     return fm 
 
-def delete(fm, b, alphabet, index):
-    ''' Update the BWT for a deletion of a character from position index in the original string '''
-    (first, last, sa, checkpoints) = fm
-
-    # Update old row
-    row = sa.index(index+1)
-    delRow = LF(fm, b, alphabet, row)
-    remC = last[row]
-    tempC = last[delRow]
-    last[row] = tempC
-
-    # Delete extra row
-    last = last[:delRow] + last[delRow+1:]
-
-    # Update sa
-    sa = sa[:delRow] + sa[delRow+1:]
-    for i in range(len(sa)):
-        if sa[i] >= index:
-            sa[i] -= 1
-
-    # Update first column
-    for k in first.keys():
-        if k == remC:
-            first[k] = (first[k][0], first[k][1]-1)
-        elif k > remC:
-            first[k] = (first[k][0]-1, first[k][1]-1)
-
-    # Remove last checkpoint row
-    if (len(last)+1) % b == 0:
-        checkpoints = checkpoints[:-1]
-
-    # Update checkpoints        
-    indexMoved = alphabet.index(tempC)
-    indexRemoved = alphabet.index(remC)    
-    for x in range(row + b - (row%b+1), len(last), b):
-        checkpoints[int((x+1) / b) - 1][indexRemoved] -= 1
-    for x in range(delRow + b - (delRow%b+1), len(last), b):
-        checkpoints[int((x+1) / b) - 1][alphabet.index(last[x])] += 1
-    if row < delRow:
-        for x in range(row + b - (row%b+1), delRow, b):
-            checkpoints[int((x+1) / b) - 1][indexMoved] += 1
-    else:
-        for x in range(delRow + b - (delRow%b+1), row, b):
-            checkpoints[int((x+1) / b) - 1][indexMoved] -= 1
-
-    if row > delRow:
-        row -= 1
-
-
-    fm = (first, last, sa, checkpoints)
-
-    if index > 0:
-        j = sa.index(index-1)
-        j2 = LF(fm, b, alphabet, row)
-        while not j == j2:
-            newJ = LF(fm, b, alphabet, j)
-            fm = moveRow(fm, b, alphabet, j, j2)
-        
-            j = newJ
-            j2 = LF(fm, b, alphabet, j2)
-
-    return fm 
-
-def substitute(fm, b, alphabet, index, c):
-    ''' Update the BWT for a substitution of a new character at position index in the original string '''
-    (first, last, sa, checkpoints) = fm
-
-    # Update old row
-    row = sa.index(index+1)
-    remC = last[row]
-    nextRow = LF(fm, b, alphabet, row)
-    last[row] = c
-    
-    # Update first column
-    for k in first.keys(): 
-        if k == remC:
-            first[k] = (first[k][0], first[k][1]-1)
-        if k == c:
-            first[k] = (first[k][0], first[k][1]+1)
-        if k > remC and k <= c:
-            first[k] = (first[k][0]-1, first[k][1]-1)
-        if k > c and k <= remC:
-            first[k] = (first[k][0]+1, first[k][1]+1)
-
-    # Update checkpoints        
-    indexAdded = alphabet.index(c)
-    indexRemoved = alphabet.index(remC)    
-    for x in range(row + b - (row%b+1), len(last), b):
-        checkpoints[int((x+1) / b) - 1][indexAdded] += 1
-        checkpoints[int((x+1) / b) - 1][indexRemoved] -= 1
-
-    # New row index for next row
-    newRowPos = LF(fm, b, alphabet, row)
-    fm = moveRow((first, last, sa, checkpoints), b, alphabet, nextRow, newRowPos)
-
-    if index > 0:
-        j = fm[2].index(index-1)
-        j2 = LF(fm, b, alphabet, newRowPos)
-        while not j == j2:
-            newJ = LF(fm, b, alphabet, j)
-            fm = moveRow(fm, b, alphabet, j, j2)
-       
-            j = newJ
-            j2 = LF(fm, b, alphabet, j2)
-
-    return fm 
+# TODO copy this back in later. (Delete and substitute)
 
 def LF(fm, b, alphabet, index):
     ''' Step forward one step in the bwt and return the next row '''
