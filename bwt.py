@@ -20,7 +20,7 @@ def bwm(t):
     bwm = [x for (x,_) in sort]
     sa = [y for (_,y) in sort]
   
-    return sorted(rotations(t)), np.array(sa)
+    return sorted(rot), np.array(sa)
 
 def bwtViaBwm(t):
     ''' Given T, returns BWT(T) and sampled SA(T) by way of the BWM '''
@@ -186,7 +186,7 @@ def insert(fm, b, alphabet, index, c, timing=False):
       time_elapsed = time.time() - starttime
       print(f'{time_elapsed}, ', end='')
 
-    # update checkpoints        
+    # Update checkpoints        
     if timing:
       starttime = time.time()
     indexAdded = alphabet.index(c)
@@ -229,7 +229,7 @@ def insert(fm, b, alphabet, index, c, timing=False):
     # Add new checkpoint row
     if len(last) % b == 0:
         newCheckpoint = np.copy(checkpoints[-1])
-        for x in range(len(checkpoints)*b,len(last)):
+        for x in range(len(checkpoints)*b,len(last)): # This tends to be small.
             newCheckpoint[alphabet.index(last[x])] += 1
         checkpoints = np.vstack([checkpoints, newCheckpoint])
     if timing:
@@ -241,10 +241,8 @@ def insert(fm, b, alphabet, index, c, timing=False):
 
     if timing:
       starttime = time.time()
-    #j = getRowBySA(fm, index-1, a, alphabet)
     if index > 0:
         j = np.where(sa == index-1)[0][0]
-
         j2 = LF(fm, b, alphabet, newRow)
         while not j == j2:
             newJ = LF(fm, b, alphabet, j)
