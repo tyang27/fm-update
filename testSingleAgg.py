@@ -7,6 +7,7 @@ t = ['$'] + [random.choice(alpha) for x in range(10000)]
 alphabet = alpha + ['$']
 
 b = 5
+print('OldRow, First, Checkpt, NewRow, SA, Checkpt, Reord')
 fm = bwt.constructFM(t, b, alphabet)
 bwt.insert(fm, b, alphabet, 1, random.choice(alpha), timing=True)
 bwt.insert(fm, b, alphabet, 5, random.choice(alpha), timing=True)
