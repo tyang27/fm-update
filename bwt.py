@@ -212,10 +212,21 @@ def insert(fm, b, alphabet, index, c, timing=False):
     # Update SA
     if timing:
       starttime = time.time()
+    sa_copy = sa.copy()
+
+    start = time.time()
     for i in range(len(sa)):
         if sa[i] >= index:
             sa[i] += 1
+    print(time.time() - start)
+    start = time.time()
+    sa_copy = np.array(sa_copy)
+    sa_copy[sa_copy >= index] += 1
+    print(time.time() - start)
+    print(np.array_equal(sa, sa_copy))
+
     sa = sa[:newRow] + [index] + sa[newRow:]
+    sa_copy = np.concatenate((sa_copy[:newRow], [index], sa_copy[newRow:]))
     if timing:
       time_elapsed = time.time() - starttime
       print(f'{time_elapsed}, ', end='')
