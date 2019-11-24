@@ -189,21 +189,11 @@ def insert(fm, b, alphabet, index, c, timing=False):
     # update checkpoints        
     if timing:
       starttime = time.time()
-    checkpoints_copy = checkpoints.copy()
-
     indexAdded = alphabet.index(c)
     indexRemoved = alphabet.index(tempC)
-    for x in range(row + b - (row%b+1), len(last), b):
-        print(int((row + b - (row%b+1)+1) / b)-1, int((x+1) / b) - 1,  len(checkpoints))
-        checkpoints[int((x+1) / b) - 1][indexAdded] += 1
-        checkpoints[int((x+1) / b) - 1][indexRemoved] -= 1
-
-    startInd = int((row + b - (row%b+1)+1) / b) - 1
-    checkpoints_copy[startInd:, indexAdded] = checkpoints_copy[startInd:, indexAdded] + np.ones((1, len(checkpoints) - startInd))
-    checkpoints_copy[startInd:, indexRemoved] = checkpoints_copy[startInd:, indexRemoved] - np.ones((1, len(checkpoints) - startInd))
-
-    print(np.array_equal(checkpoints, checkpoints_copy))
-
+    startInd = int((row + b - (row % b + 1) + 1) / b) - 1
+    checkpoints[startInd:, indexAdded] = checkpoints[startInd:, indexAdded] + np.ones((1, len(checkpoints) - startInd))
+    checkpoints[startInd:, indexRemoved] = checkpoints[startInd:, indexRemoved] - np.ones((1, len(checkpoints) - startInd))
     if timing:
       time_elapsed = time.time() - starttime
       print(f'{time_elapsed}, ', end='')
@@ -235,14 +225,14 @@ def insert(fm, b, alphabet, index, c, timing=False):
       starttime = time.time()
     indexRemoved = alphabet.index(tempC)
     for x in range(newRow + b - (newRow%b+1), len(last)-1, b):
-        checkpoints[int((x+1) / b) - 1][indexRemoved] += 1
-        checkpoints[int((x+1) / b) - 1][alphabet.index(last[x+1])] -= 1
+        checkpoints[int((x+1) / b) - 1][alphabet.index(last[x+1])] -= 1 # VECTORIZE THIS?
+    checkpoints[startInd:, indexRemoved] = checkpoints[startInd:, indexRemoved] + np.ones((1, len(checkpoints) - startInd))
+
     # Add new checkpoint row
     if len(last) % b == 0:
         newCheckpoint = np.copy(checkpoints[-1])
         for x in range(len(checkpoints)*b,len(last)):
             newCheckpoint[alphabet.index(last[x])] += 1
-        #newCheckpoint[alphabet.index(tempC)] += 1
         checkpoints = np.vstack([checkpoints, newCheckpoint])
     if timing:
       time_elapsed = time.time() - starttime
