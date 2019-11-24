@@ -2,18 +2,19 @@
 import math
 import numpy as np
 import random
+import time
 
 def rotations(t):
     ''' Return list of rotations of input string t '''
     tt = t * 2
-    return [ tt[i:i+len(t)] for i in xrange(0, len(t)) ]
+    return [ tt[i:i+len(t)] for i in range(0, len(t)) ]
 
 def bwm(t):
     ''' Return lexicographically sorted list of t's rotations and suffix array sampled every a indices '''
     rot = rotations(t)
  
     # match each rotation with its index
-    rot2 = [(rot[i], i) for i in xrange(len(rot))]
+    rot2 = [(rot[i], i) for i in range(len(rot))]
     sort = sorted(rot2)
  
     bwm = [x for (x,_) in sort]
@@ -24,7 +25,7 @@ def bwm(t):
 def bwtViaBwm(t):
     ''' Given T, returns BWT(T) and sampled SA(T) by way of the BWM '''
     bw, sa = bwm(t)
-    return map(lambda x: x[-1], bw), sa
+    return [x[-1] for x in bw], sa
 
 def rankBwt(bw):
     ''' Given BWT string bw, return parallel list of B-ranks.  Also
@@ -42,7 +43,7 @@ def firstCol(tots):
         the character. '''
     first = {}
     totc = 0
-    for c, count in sorted(tots.iteritems()):
+    for c, count in sorted(tots.items()):
         first[c] = (totc, totc + count)
         totc += count
     return first
@@ -66,12 +67,12 @@ def getCheckpoints(bw, b, alphabet):
     for l in alphabet:
         counts[l] = 0
 
-    checkpoints = np.zeros((len(bw) / b, len(alphabet)))
-    for i in xrange(len(bw)):
+    checkpoints = np.zeros((int(len(bw) / b), len(alphabet)))
+    for i in range(len(bw)):
         counts[bw[i]] += 1
         if (i % b) == (b-1):
             for k,v in counts.items():
-                checkpoints[i/b][alphabet.index(k)] = v
+                checkpoints[int(i/b)][alphabet.index(k)] = v
     return checkpoints
    
 def getCount(bw, i, checkpoints, b, alphabet):
@@ -80,15 +81,15 @@ def getCount(bw, i, checkpoints, b, alphabet):
     nextC = prevC+b
 
     if i == prevC:
-        return int(checkpoints[(i+1)/b - 1][alphabet.index(bw[i])]) - 1
+        return int(checkpoints[int((i+1)/b - 1)][alphabet.index(bw[i])]) - 1
     elif prevC > -1 and (nextC >= len(bw) or (i - prevC) < (nextC - i)):
-        count = int(checkpoints[(i+1)/b - 1][alphabet.index(bw[i])])
+        count = int(checkpoints[int((i+1)/b - 1)][alphabet.index(bw[i])])
         for x in bw[prevC+1:i]:
             if x == bw[i]:
                 count += 1
         return count
     else:
-        count = int(checkpoints[(i+1)/b][alphabet.index(bw[i])])
+        count = int(checkpoints[int((i+1)/b)][alphabet.index(bw[i])])
         for x in bw[i:(nextC+1)]:
             if x == bw[i]:
                 count -= 1
@@ -100,20 +101,20 @@ def findRange(fm, b, alphabet, substring, start, end):
     alphabet = sorted(first.keys())
 
     if len(substring) < 1:
-        print 'Error: substring must have length >= 1'
+        print('Error: substring must have length >= 1')
         return []
     else:
         startId = first[substring[-1]][0] + start
         endId = first[substring[-1]][0] + end
         if len(substring) == 1:
             matches = []
-            for i in xrange(startId, endId):
+            for i in range(startId, endId):
                 matches.append(sa[i])
             return sorted(matches)
         else:
             minId = len(last)
             maxId = 0
-            for i in xrange(startId, endId):
+            for i in range(startId, endId):
                 if last[i] == substring[-2]:
                     currId  = getCount(last, i, checkpoints, b, alphabet)
                     if currId < minId:
@@ -142,9 +143,9 @@ def moveRow(fm, b, alphabet, i, j):
 
         # Loop through checkpoints between j and i
         indexAdded = alphabet.index(last[j])
-        for x in xrange(j + b - (j%b+1), i, b):
-            checkpoints[(x+1) / b - 1][indexAdded] += 1
-            checkpoints[(x+1) / b - 1][alphabet.index(last[x+1])] -= 1
+        for x in range(j + b - (j%b+1), i, b):
+            checkpoints[int((x+1) / b) - 1][indexAdded] += 1
+            checkpoints[int((x+1) / b) - 1][alphabet.index(last[x+1])] -= 1
     else:
         last = last[:i] + last[i+1:j+1] + [last[i]] + last[j+1:]
         
@@ -153,64 +154,95 @@ def moveRow(fm, b, alphabet, i, j):
 
         # Loop through checkpoints between j and i
         indexRemoved = alphabet.index(last[j])
-        for x in xrange(i + b - (i%b+1), j, b):
-            checkpoints[(x+1) / b - 1][indexRemoved] -= 1
-            checkpoints[(x+1) / b - 1][alphabet.index(last[x])] += 1
+        for x in range(i + b - (i%b+1), j, b):
+            checkpoints[int((x+1) / b) - 1][indexRemoved] -= 1
+            checkpoints[int((x+1) / b) - 1][alphabet.index(last[x])] += 1
     return (first, last, sa, checkpoints)
 
-def insert(fm, b, alphabet, index, c):
+def insert(fm, b, alphabet, index, c, timing=False):
     ''' Update the BWT for an insertion of character c into position index in the original string '''
     (first, last, sa, checkpoints) = fm
 
+    starttime = None
+    if timing:
+      starttime = time.time()
     # Update old row
     row = sa.index(index)
     tempC = last[row]
     last[row] = c
+    if timing:
+      time_elapsed = time.time() - starttime
+      print(f'{time_elapsed}, ', end='')
 
     # Update first column
+    if timing:
+      starttime = time.time()
     for k in alphabet:
         if k == c:
             first[k] = (first[k][0], first[k][1]+1)
         elif k > c:
             first[k] = (first[k][0]+1, first[k][1]+1)
+    if timing:
+      time_elapsed = time.time() - starttime
+      print(f'{time_elapsed}, ', end='')
 
     # update checkpoints        
+    if timing:
+      starttime = time.time()
     indexAdded = alphabet.index(c)
     indexRemoved = alphabet.index(tempC)
-    for x in xrange(row + b - (row%b+1), len(last), b):
-        checkpoints[(x+1) / b - 1][indexAdded] += 1
-        checkpoints[(x+1) / b - 1][indexRemoved] -= 1
+    for x in range(row + b - (row%b+1), len(last), b):
+        checkpoints[int((x+1) / b) - 1][indexAdded] += 1
+        checkpoints[int((x+1) / b) - 1][indexRemoved] -= 1
+    if timing:
+      time_elapsed = time.time() - starttime
+      print(f'{time_elapsed}, ', end='')
 
 
     # Add new row
+    if timing:
+      starttime = time.time()
     bVal = getCount(last, row, checkpoints, b, alphabet)
-
     newRow = first[c][0] + bVal
     last = last[:newRow] + [tempC] + last[newRow:]
-
+    if timing:
+      time_elapsed = time.time() - starttime
+      print(f'{time_elapsed}, ', end='')
 
     # Update SA
-    for i in xrange(len(sa)):
+    if timing:
+      starttime = time.time()
+    for i in range(len(sa)):
         if sa[i] >= index:
             sa[i] += 1
     sa = sa[:newRow] + [index] + sa[newRow:]
+    if timing:
+      time_elapsed = time.time() - starttime
+      print(f'{time_elapsed}, ', end='')
 
     # Update checkpoints
+    if timing:
+      starttime = time.time()
     indexRemoved = alphabet.index(tempC)
-    for x in xrange(newRow + b - (newRow%b+1), len(last)-1, b):
-        checkpoints[(x+1) / b - 1][indexRemoved] += 1
-        checkpoints[(x+1) / b - 1][alphabet.index(last[x+1])] -= 1
+    for x in range(newRow + b - (newRow%b+1), len(last)-1, b):
+        checkpoints[int((x+1) / b) - 1][indexRemoved] += 1
+        checkpoints[int((x+1) / b) - 1][alphabet.index(last[x+1])] -= 1
     # Add new checkpoint row
     if len(last) % b == 0:
         newCheckpoint = np.copy(checkpoints[-1])
-        for x in xrange(len(checkpoints)*b,len(last)):
+        for x in range(len(checkpoints)*b,len(last)):
             newCheckpoint[alphabet.index(last[x])] += 1
         #newCheckpoint[alphabet.index(tempC)] += 1
         checkpoints = np.vstack([checkpoints, newCheckpoint])
+    if timing:
+      time_elapsed = time.time() - starttime
+      print(f'{time_elapsed}, ', end='')
 
     # Rearrange rows that are now out of order
     fm = (first, last, sa, checkpoints)
 
+    if timing:
+      starttime = time.time()
     #j = getRowBySA(fm, index-1, a, alphabet)
     if index > 0:
         j = sa.index(index-1)
@@ -222,6 +254,9 @@ def insert(fm, b, alphabet, index, c):
         
             j = newJ
             j2 = LF(fm, b, alphabet, j2)
+    if timing:
+      time_elapsed = time.time() - starttime
+      print(f'{time_elapsed}')
 
     return fm 
 
@@ -241,7 +276,7 @@ def delete(fm, b, alphabet, index):
 
     # Update sa
     sa = sa[:delRow] + sa[delRow+1:]
-    for i in xrange(len(sa)):
+    for i in range(len(sa)):
         if sa[i] >= index:
             sa[i] -= 1
 
@@ -259,16 +294,16 @@ def delete(fm, b, alphabet, index):
     # Update checkpoints        
     indexMoved = alphabet.index(tempC)
     indexRemoved = alphabet.index(remC)    
-    for x in xrange(row + b - (row%b+1), len(last), b):
-        checkpoints[(x+1) / b - 1][indexRemoved] -= 1
-    for x in xrange(delRow + b - (delRow%b+1), len(last), b):
-        checkpoints[(x+1) / b - 1][alphabet.index(last[x])] += 1
+    for x in range(row + b - (row%b+1), len(last), b):
+        checkpoints[int((x+1) / b) - 1][indexRemoved] -= 1
+    for x in range(delRow + b - (delRow%b+1), len(last), b):
+        checkpoints[int((x+1) / b) - 1][alphabet.index(last[x])] += 1
     if row < delRow:
-        for x in xrange(row + b - (row%b+1), delRow, b):
-            checkpoints[(x+1) / b - 1][indexMoved] += 1
+        for x in range(row + b - (row%b+1), delRow, b):
+            checkpoints[int((x+1) / b) - 1][indexMoved] += 1
     else:
-        for x in xrange(delRow + b - (delRow%b+1), row, b):
-            checkpoints[(x+1) / b - 1][indexMoved] -= 1
+        for x in range(delRow + b - (delRow%b+1), row, b):
+            checkpoints[int((x+1) / b) - 1][indexMoved] -= 1
 
     if row > delRow:
         row -= 1
@@ -312,9 +347,9 @@ def substitute(fm, b, alphabet, index, c):
     # Update checkpoints        
     indexAdded = alphabet.index(c)
     indexRemoved = alphabet.index(remC)    
-    for x in xrange(row + b - (row%b+1), len(last), b):
-        checkpoints[(x+1) / b - 1][indexAdded] += 1
-        checkpoints[(x+1) / b - 1][indexRemoved] -= 1
+    for x in range(row + b - (row%b+1), len(last), b):
+        checkpoints[int((x+1) / b) - 1][indexAdded] += 1
+        checkpoints[int((x+1) / b) - 1][indexRemoved] -= 1
 
     # New row index for next row
     newRowPos = LF(fm, b, alphabet, row)
@@ -351,7 +386,7 @@ def findApproximate(fm, b, alphabet, substring, k):
     ''' Find all approximate matches to the fm index by making all possible mutated strings and searching for exact matches '''
     variations = dict()
     variations[substring] = []
-    for i in xrange(k):
+    for i in range(k):
         # first check if any of the current strings match
         matches = dict()
         for k,v in variations.items():
@@ -394,7 +429,7 @@ def makeEdits(t):
     # 2 = deletion
 
     # deletions
-    for i in xrange(len(t)):
+    for i in range(len(t)):
         s = t[:i] + t[i+1:]
         if not s in variations:
             variations[s] = (1, i, t[i])
@@ -402,7 +437,7 @@ def makeEdits(t):
             variations[s] = min(variations[s], (1, i, t[i]))
 
     # insertions
-    for i in xrange(len(t)+1):
+    for i in range(len(t)+1):
         for c in chars:
             s = t[:i] + c + t[i:]
             if not s in variations:
@@ -411,7 +446,7 @@ def makeEdits(t):
                 variations[s] = min(variations[s], (2, i))
 
     # substitutions
-    for i in xrange(len(t)):
+    for i in range(len(t)):
         for c in chars:
             if not c == t[i]:
                 s = t[:i] + c + t[i+1:]
@@ -425,17 +460,15 @@ def makeEdits(t):
 def editDistance(t1, t2):
     ''' Return the minimal sequence of edits to get from t1 to t2 '''
     m = np.zeros([len(t2)+1, len(t1)+1])
-    for i in xrange(len(t1)):
+    for i in range(len(t1)):
         m[0][i+1] = i+1
-    for i in xrange(len(t2)):
+    for i in range(len(t2)):
         m[i+1][0] = i+1
 
-    for x in xrange(len(t2)):
-        for y in xrange(len(t1)):
+    for x in range(len(t2)):
+        for y in range(len(t1)):
             match = 0 if t2[x] == t1[y] else 1
             m[x+1][y+1] = min(m[x][y+1]+1, m[x+1][y]+1, m[x][y]+match)
-
-#    print m
 
     return editSeq(m, t1, t2)
 
@@ -446,7 +479,6 @@ def editSeq(m, t1, t2):
     edits = []
 
     while x > 0 and y > 0:
-#        print '(' + str(x) + ', ' + str(y) + ')'
         match = 0 if t2[x-1] == t1[y-1] else 1
         if m[x][y] == m[x-1][y-1] + match:
             if not t2[x-1] == t1[y-1]:
