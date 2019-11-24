@@ -192,8 +192,8 @@ def insert(fm, b, alphabet, index, c, timing=False):
     indexAdded = alphabet.index(c)
     indexRemoved = alphabet.index(tempC)
     startInd = int((row + b - (row % b + 1) + 1) / b) - 1
-    checkpoints[startInd:, indexAdded] = checkpoints[startInd:, indexAdded] + np.ones((1, len(checkpoints) - startInd))
-    checkpoints[startInd:, indexRemoved] = checkpoints[startInd:, indexRemoved] - np.ones((1, len(checkpoints) - startInd))
+    checkpoints[startInd:, indexAdded] += 1
+    checkpoints[startInd:, indexRemoved] -= 1
     if timing:
       time_elapsed = time.time() - starttime
       print(f'{time_elapsed}, ', end='')
@@ -224,12 +224,7 @@ def insert(fm, b, alphabet, index, c, timing=False):
     indexRemoved = alphabet.index(tempC)
     for x in range(newRow + b - (newRow%b+1), len(last)-1, b):
         checkpoints[int((x+1) / b) - 1][alphabet.index(last[x+1])] -= 1 # VECTORIZE THIS?
-    #print(checkpoints[startInd:, indexRemoved])
-    checkpoints_copy = checkpoints.copy()
-    checkpoints_copy[startInd:, indexRemoved] = checkpoints_copy[startInd:, indexRemoved] + np.ones((1, len(checkpoints) - startInd))
     checkpoints[startInd:, indexRemoved] += 1
-    #print(checkpoints[startInd:, indexRemoved])
-    print(np.array_equal(checkpoints, checkpoints_copy))
 
     # Add new checkpoint row
     if len(last) % b == 0:
