@@ -189,11 +189,21 @@ def insert(fm, b, alphabet, index, c, timing=False):
     # update checkpoints        
     if timing:
       starttime = time.time()
+    checkpoints_copy = checkpoints.copy()
+
     indexAdded = alphabet.index(c)
     indexRemoved = alphabet.index(tempC)
     for x in range(row + b - (row%b+1), len(last), b):
+        print(int((row + b - (row%b+1)+1) / b)-1, int((x+1) / b) - 1,  len(checkpoints))
         checkpoints[int((x+1) / b) - 1][indexAdded] += 1
         checkpoints[int((x+1) / b) - 1][indexRemoved] -= 1
+
+    startInd = int((row + b - (row%b+1)+1) / b) - 1
+    checkpoints_copy[startInd:, indexAdded] = checkpoints_copy[startInd:, indexAdded] + np.ones((1, len(checkpoints) - startInd))
+    checkpoints_copy[startInd:, indexRemoved] = checkpoints_copy[startInd:, indexRemoved] - np.ones((1, len(checkpoints) - startInd))
+
+    print(np.array_equal(checkpoints, checkpoints_copy))
+
     if timing:
       time_elapsed = time.time() - starttime
       print(f'{time_elapsed}, ', end='')
